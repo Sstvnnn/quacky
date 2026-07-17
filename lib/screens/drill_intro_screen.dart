@@ -21,7 +21,7 @@ class DrillIntroScreen extends StatelessWidget {
                   .moveY(end: -10, duration: 1200.ms, curve: Curves.easeInOut),
               const SizedBox(height: 28),
               const Text(
-                'One drill before\nQuacky protects you',
+                'One drill before\nQuaky protects you',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 28,
@@ -31,7 +31,7 @@ class DrillIntroScreen extends StatelessWidget {
               ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.3),
               const SizedBox(height: 14),
               const Text(
-                'You will hear the real alarm, talk to Quacky, and practice '
+                'You will hear the real alarm, talk to Quaky, and practice '
                 'the safety check. In a real earthquake your hands will '
                 'already know what to do.',
                 textAlign: TextAlign.center,

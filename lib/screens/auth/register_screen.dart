@@ -95,7 +95,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Join Quacky')),
+      appBar: AppBar(title: const Text('Join Quaky')),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -156,7 +156,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       prefixIcon: Icon(Icons.person_outline),
                     ),
                     validator: (v) => (v == null || v.trim().length < 2)
-                        ? 'Tell Quacky your name'
+                        ? 'Tell Quaky your name'
                         : null,
                   ).animate().fadeIn(delay: 150.ms).slideY(begin: 0.3),
                   const SizedBox(height: 14),
@@ -244,7 +244,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ).animate().fadeIn(delay: 550.ms).slideY(begin: 0.3),
                   const SizedBox(height: 10),
                   const Text(
-                    'After signing up you will complete one mandatory\nearthquake drill before Quacky goes live.',
+                    'After signing up you will complete one mandatory\nearthquake drill before Quaky goes live.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12.5, color: QColors.brownSoft),
                   ).animate().fadeIn(delay: 650.ms),

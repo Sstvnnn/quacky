@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/app_theme.dart';
+import 'state/incident_controller.dart';
 import 'state/quake_controller.dart';
 import 'screens/splash_screen.dart';
 
@@ -22,10 +23,13 @@ class QuackyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => QuakeController(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => QuakeController()),
+        ChangeNotifierProvider(create: (_) => IncidentController()),
+      ],
       child: MaterialApp(
-        title: 'Quacky',
+        title: 'Quaky',
         debugShowCheckedModeBanner: false,
         theme: buildQuackyTheme(),
         home: const SplashScreen(),

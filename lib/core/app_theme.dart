@@ -5,11 +5,14 @@ class QColors {
   static const creamDeep = Color(0xFFFBE9BE);
   static const yellow = Color(0xFFF6C445);
   static const orange = Color(0xFFF79A1F);
+  static const orangeDark = Color(0xFFC2710D);
   static const red = Color(0xFFCE2029);
   static const redDark = Color(0xFF8E1116);
   static const green = Color(0xFF3FA34D);
   static const brown = Color(0xFF5B3A1E);
   static const brownSoft = Color(0xFF8A6440);
+  static const sleepBlue = Color(0xFFBFE3F2);
+  static const nightIndigo = Color(0xFF1B2A3A);
 }
 
 ThemeData buildQuackyTheme() {

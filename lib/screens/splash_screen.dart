@@ -6,9 +6,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/app_theme.dart';
 import '../state/profile_service.dart';
-import 'auth/login_screen.dart';
 import 'drill_intro_screen.dart';
 import 'home_screen.dart';
+import 'landing_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -28,7 +28,7 @@ class _SplashScreenState extends State<SplashScreen> {
     final session = Supabase.instance.client.auth.currentSession;
     Widget next;
     if (session == null) {
-      next = const LoginScreen();
+      next = const LandingScreen();
     } else {
       bool done = false;
       try {

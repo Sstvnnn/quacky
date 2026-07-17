@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/app_theme.dart';
-import '../state/quake_controller.dart';
-import '../widgets/state_hud.dart';
+import '../widgets/seismic_wave.dart';
 import 'auth/login_screen.dart';
 import 'emergency_flow_screen.dart';
 import 'map_screen.dart';
@@ -35,128 +33,159 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final phase = context.watch<QuakeController>().phase;
     return Scaffold(
-      appBar: AppBar(
-        title: Image.asset('assets/images/Quaky_Logo.png', height: 44),
-        actions: [
-          IconButton(
-            tooltip: 'Sign out',
-            icon: const Icon(Icons.logout),
-            onPressed: () => _logout(context),
-          ),
-        ],
-      ),
       body: SafeArea(
-        child: Column(
-          children: [
-            StateHud(phase: phase),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 8),
-                    Text(
-                      'Hi, $_displayName!',
-                      style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ).animate().fadeIn().slideY(begin: 0.2),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Quacky is watching over you.',
-                      style:
-                          TextStyle(fontSize: 15, color: QColors.brownSoft),
-                    ).animate().fadeIn(delay: 150.ms),
-                    const SizedBox(height: 20),
-
-                    Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(22),
-                        border:
-                            Border.all(color: QColors.creamDeep, width: 2),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 14,
-                            height: 14,
-                            decoration: const BoxDecoration(
-                              color: QColors.green,
-                              shape: BoxShape.circle,
-                            ),
-                          )
-                              .animate(onPlay: (c) => c.repeat(reverse: true))
-                              .scaleXY(end: 1.5, duration: 800.ms)
-                              .fade(end: 0.5),
-                          const SizedBox(width: 14),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Sensors active',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                SizedBox(height: 2),
-                                Text(
-                                  'Mic + accelerometer monitoring',
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    color: QColors.brownSoft,
-                                  ),
-                                ),
-                              ],
-                            ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 22),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Image.asset('assets/images/Quaky_Logo.png', height: 40),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Hi, $_displayName',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
                           ),
-                        ],
-                      ),
-                    ).animate().fadeIn(delay: 250.ms).slideY(begin: 0.2),
-                    const SizedBox(height: 24),
+                        ),
+                        const Text(
+                          'You’re protected',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: QColors.brownSoft,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Sign out',
+                    icon: const Icon(Icons.logout, color: QColors.brownSoft),
+                    onPressed: () => _logout(context),
+                  ),
+                ],
+              ),
+              const Spacer(),
 
-                    // The demo trigger.
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: QColors.red,
-                        minimumSize: const Size.fromHeight(72),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(color: QColors.creamDeep, width: 2),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 11,
+                      height: 11,
+                      decoration: const BoxDecoration(
+                        color: QColors.green,
+                        shape: BoxShape.circle,
                       ),
-                      icon: const Icon(Icons.warning_amber_rounded, size: 30),
-                      label: const Text('SIMULATE EARTHQUAKE'),
-                      onPressed: () => _startFlow(context, drill: false),
                     )
                         .animate(onPlay: (c) => c.repeat(reverse: true))
-                        .scaleXY(end: 1.02, duration: 900.ms)
-                        .animate() 
-                        .fadeIn(delay: 350.ms)
-                        .slideY(begin: 0.2),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
+                        .scaleXY(end: 1.5, duration: 800.ms)
+                        .fade(end: 0.5),
+                    const SizedBox(width: 9),
+                    const Text(
+                      'Monitoring motion sensors',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: QColors.brown,
+                      ),
+                    ),
+                  ],
+                ),
+              ).animate().fadeIn(),
+              const SizedBox(height: 28),
+
+              GestureDetector(
+                onTap: () => _startFlow(context, drill: false),
+                child: Column(
+                  children: [
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: 210,
+                          height: 210,
+                          decoration: const BoxDecoration(
+                            color: QColors.sleepBlue,
+                            shape: BoxShape.circle,
+                          ),
+                        )
+                            .animate(onPlay: (c) => c.repeat(reverse: true))
+                            .scaleXY(
+                              begin: 0.85,
+                              end: 1.05,
+                              duration: 2600.ms,
+                              curve: Curves.easeInOut,
+                            )
+                            .fade(begin: 0.35, end: 0.6),
+                        Image.asset('assets/images/Idle.png', width: 200)
+                            .animate(onPlay: (c) => c.repeat(reverse: true))
+                            .moveY(
+                              begin: 0,
+                              end: -14,
+                              duration: 2600.ms,
+                              curve: Curves.easeInOut,
+                            ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Quaky is resting',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ).animate().fadeIn(delay: 150.ms),
+              const SizedBox(height: 20),
+
+              const SeismicWave(
+                active: false,
+                color: QColors.creamDeep,
+                height: 70,
+              ),
+              const Spacer(),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
                       icon: const Icon(Icons.school_outlined),
-                      label: const Text('Practice drill'),
+                      label: const Text('Drill'),
                       onPressed: () => _startFlow(context, drill: true),
-                    ).animate().fadeIn(delay: 450.ms).slideY(begin: 0.2),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
                       icon: const Icon(Icons.map_outlined),
-                      label: const Text('Community map'),
+                      label: const Text('Map'),
                       onPressed: () => Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const MapScreen()),
                       ),
-                    ).animate().fadeIn(delay: 550.ms).slideY(begin: 0.2),
-                    const SizedBox(height: 24),
-                  ],
-                ),
-              ),
-            ),
-          ],
+                    ),
+                  ),
+                ],
+              ).animate().fadeIn(delay: 300.ms),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );

@@ -6,10 +6,12 @@ import '../../core/app_theme.dart';
 import '../../state/profile_service.dart';
 import '../drill_intro_screen.dart';
 import '../home_screen.dart';
+import '../sar/sar_dashboard_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final bool sarMode;
+  const LoginScreen({super.key, this.sarMode = false});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -37,12 +39,29 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _email.text.trim(),
         password: _password.text,
       );
-      bool done = false;
-      try {
-        done = (await ProfileService.fetchProfile())
-                ?.hasCompletedSimulation ??
-            false;
-      } catch (_) {}
+      final profile = await ProfileService.fetchProfile();
+
+      if (widget.sarMode) {
+        if (profile?.isSar != true) {
+          await Supabase.instance.client.auth.signOut();
+          if (!mounted) return;
+          setState(() => _loading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('This account is not authorized for SAR access.'),
+            ),
+          );
+          return;
+        }
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const SarDashboardScreen()),
+          (_) => false,
+        );
+        return;
+      }
+
+      final done = profile?.hasCompletedSimulation ?? false;
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
@@ -67,7 +86,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final sar = widget.sarMode;
     return Scaffold(
+      backgroundColor: QColors.cream,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -77,27 +98,47 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Image.asset('assets/images/Quaky_Logo.png', width: 150)
-                      .animate()
-                      .scale(
-                        begin: const Offset(0.7, 0.7),
-                        duration: 600.ms,
-                        curve: Curves.elasticOut,
-                      ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Welcome back!',
+                  if (sar)
+                    const Icon(Icons.shield_moon,
+                            size: 76, color: QColors.orangeDark)
+                        .animate()
+                        .scale(
+                          begin: const Offset(0.7, 0.7),
+                          duration: 600.ms,
+                          curve: Curves.elasticOut,
+                        )
+                  else
+                    Image.asset('assets/images/Quaky_Logo.png', width: 150)
+                        .animate()
+                        .scale(
+                          begin: const Offset(0.7, 0.7),
+                          duration: 600.ms,
+                          curve: Curves.elasticOut,
+                        ),
+                  const SizedBox(height: 10),
+                  Text(
+                    sar ? 'SAR Personnel Login' : 'Welcome back!',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w900,
+                      color: QColors.brown,
+                    ),
                   ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.3),
                   const SizedBox(height: 28),
                   TextFormField(
                     controller: _email,
                     keyboardType: TextInputType.emailAddress,
-                    autofillHints: const [AutofillHints.email],
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Email',
-                      prefixIcon: Icon(Icons.alternate_email),
+                      prefixIcon: const Icon(Icons.alternate_email),
+                      focusedBorder: sar
+                          ? OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: const BorderSide(
+                                  color: QColors.orangeDark, width: 2.5),
+                            )
+                          : null,
                     ),
                     validator: (v) => (v == null || !v.contains('@'))
                         ? 'Enter a valid email'
@@ -110,6 +151,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     decoration: InputDecoration(
                       labelText: 'Password',
                       prefixIcon: const Icon(Icons.lock_outline),
+                      focusedBorder: sar
+                          ? OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: const BorderSide(
+                                  color: QColors.orangeDark, width: 2.5),
+                            )
+                          : null,
                       suffixIcon: IconButton(
                         icon: Icon(
                             _obscure ? Icons.visibility : Icons.visibility_off),
@@ -122,6 +170,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.3),
                   const SizedBox(height: 24),
                   ElevatedButton(
+                    style: sar
+                        ? ElevatedButton.styleFrom(
+                            backgroundColor: QColors.orangeDark)
+                        : null,
                     onPressed: _loading ? null : _signIn,
                     child: _loading
                         ? const SizedBox(
@@ -132,22 +184,51 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text('Sign in'),
+                        : Text(sar ? 'Login' : 'Sign in'),
                   ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.3),
                   const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                          builder: (_) => const RegisterScreen()),
-                    ),
-                    child: const Text(
-                      "New here? Create an account",
-                      style: TextStyle(
-                        color: QColors.brownSoft,
-                        fontWeight: FontWeight.w700,
+                  if (sar)
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text(
+                        '← Back to citizen sign in',
+                        style: TextStyle(
+                          color: QColors.brownSoft,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                  ).animate().fadeIn(delay: 600.ms),
+                    ).animate().fadeIn(delay: 600.ms)
+                  else ...[
+                    TextButton(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const RegisterScreen()),
+                      ),
+                      child: const Text(
+                        'New here? Create an account',
+                        style: TextStyle(
+                          color: QColors.brownSoft,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ).animate().fadeIn(delay: 600.ms),
+                    TextButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const LoginScreen(sarMode: true),
+                        ),
+                      ),
+                      icon: const Icon(Icons.shield_outlined,
+                          size: 18, color: QColors.brownSoft),
+                      label: const Text(
+                        'Search & Rescue personnel',
+                        style: TextStyle(
+                          color: QColors.brownSoft,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ).animate().fadeIn(delay: 700.ms),
+                  ],
                 ],
               ),
             ),
