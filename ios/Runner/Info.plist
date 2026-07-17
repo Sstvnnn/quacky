@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Quacky needs microphone access to communicate with the AI emergency assistant during earthquakes.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Quacky needs camera access so the AI can see your surroundings and guide you to safety.</string>
 </dict>
 </plist>
