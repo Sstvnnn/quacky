@@ -6,7 +6,7 @@ import '../../core/app_theme.dart';
 import '../../state/profile_service.dart';
 import '../drill_intro_screen.dart';
 import '../home_screen.dart';
-import '../sar/sar_dashboard_screen.dart';
+import '../sar/sar_home_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -55,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
         }
         if (!mounted) return;
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const SarDashboardScreen()),
+          MaterialPageRoute(builder: (_) => const SarHomeScreen()),
           (_) => false,
         );
         return;

@@ -31,9 +31,8 @@ class DrillIntroScreen extends StatelessWidget {
               ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.3),
               const SizedBox(height: 14),
               const Text(
-                'You will hear the real alarm, talk to Quaky, and practice '
-                'the safety check. In a real earthquake your hands will '
-                'already know what to do.',
+                'Practice the alarm and the safety drill now, so you '
+                'don’t have to think twice when it is real.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 15, color: QColors.brownSoft),
               ).animate().fadeIn(delay: 500.ms),
@@ -50,7 +49,7 @@ class DrillIntroScreen extends StatelessWidget {
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Turn your volume up — the drill alarm is loud on purpose.',
+                        'Turn your volume up',
                         style: TextStyle(fontSize: 13, color: QColors.brown),
                       ),
                     ),

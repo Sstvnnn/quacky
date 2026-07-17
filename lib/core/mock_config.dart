@@ -13,11 +13,13 @@ class MockConfig {
 
   static const List<(int, String)> geminiAnalysis = [
     (1, 'Analyzing your surroundings…'),
-    (5, 'Indoor environment detected — bedroom, 2nd floor.'),
-    (11, 'Hazard: shattered window on your left. Keep clear.'),
-    (18, 'Sturdy table ahead — take cover beneath it now.'),
-    (27, 'Debris blocking the doorway. Do not exit yet.'),
-    (38, 'You are doing well. Hold your position.'),
+    (5, 'Indoor environment detected: Dining Room'),
+    (11, 'Tables detected on your left and right.'),
+    (18, 'Sturdy table detected ahead — take cover beneath it now.'),
+    (
+      27,
+      'Position secured. Hold onto the table legs and protect your head until the shaking stops.',
+    ),
     (50, 'Tap I\'M SAFE if secure — or SOS to call for help.'),
   ];
 
