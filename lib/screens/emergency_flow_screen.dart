@@ -1,4 +1,4 @@
-import 'dart:math';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -10,7 +10,7 @@ import '../core/mock_config.dart';
 import '../state/profile_service.dart';
 import '../state/quake_controller.dart';
 import '../widgets/community_map.dart';
-import '../widgets/state_hud.dart';
+import '../widgets/seismic_wave.dart';
 import '../widgets/typing_text.dart';
 import 'home_screen.dart';
 
@@ -44,7 +44,6 @@ class _EmergencyFlowScreenState extends State<EmergencyFlowScreen> {
       QuakePhase.alarm => _AlarmView(onAck: qc.acknowledgeAlarm),
       QuakePhase.geminiLive => _GeminiLiveView(
           countdown: qc.countdown,
-          captions: qc.captions,
           onSafe: qc.markSafe,
           onSos: qc.triggerSos,
         ),
@@ -52,30 +51,19 @@ class _EmergencyFlowScreenState extends State<EmergencyFlowScreen> {
         _ResultView(sos: qc.phase == QuakePhase.sos, drill: qc.isDrill),
     };
 
-    final dark =
-        qc.phase == QuakePhase.alarm || qc.phase == QuakePhase.geminiLive;
-
     return PopScope(
-      // No backing out mid-emergency; the flow must resolve.
       canPop: resolved || qc.phase == QuakePhase.idle,
       child: Scaffold(
-        backgroundColor: qc.phase == QuakePhase.alarm
-            ? QColors.redDark
-            : qc.phase == QuakePhase.geminiLive
-                ? Colors.black
-                : QColors.cream,
+        backgroundColor:
+            qc.phase == QuakePhase.alarm ? QColors.red : QColors.cream,
         body: SafeArea(
           child: Column(
             children: [
               if (qc.isDrill) const _DrillBanner(),
-              if (!dark) StateHud(phase: qc.phase),
               Expanded(
                 child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 350),
-                  child: KeyedSubtree(
-                    key: ValueKey(qc.phase),
-                    child: view,
-                  ),
+                  duration: const Duration(milliseconds: 400),
+                  child: KeyedSubtree(key: ValueKey(qc.phase), child: view),
                 ),
               ),
             ],
@@ -108,25 +96,8 @@ class _DrillBanner extends StatelessWidget {
   }
 }
 
-class _DetectingView extends StatefulWidget {
+class _DetectingView extends StatelessWidget {
   const _DetectingView();
-
-  @override
-  State<_DetectingView> createState() => _DetectingViewState();
-}
-
-class _DetectingViewState extends State<_DetectingView>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c =
-      AnimationController(vsync: this, duration: const Duration(seconds: 1))
-        ..repeat();
-  final _rng = Random();
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -135,35 +106,20 @@ class _DetectingViewState extends State<_DetectingView>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          AnimatedBuilder(
-            animation: _c,
-            builder: (context, _) => Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: List.generate(24, (i) {
-                final h = 8.0 + _rng.nextDouble() * 72;
-                return Container(
-                  width: 6,
-                  height: h,
-                  margin: const EdgeInsets.symmetric(horizontal: 2.5),
-                  decoration: BoxDecoration(
-                    color: h > 56 ? QColors.red : QColors.orange,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                );
-              }),
-            ),
+          const SeismicWave(
+            active: true,
+            color: QColors.orange,
+            height: 150,
           ),
-          const SizedBox(height: 36),
+          const SizedBox(height: 40),
           const Text(
-            'Anomaly detected',
+            'Seismic activity detected',
             style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
           ).animate().fadeIn(),
           const SizedBox(height: 8),
           const Text(
-            'Low-frequency rumble on microphone · accelerometer spike',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: QColors.brownSoft),
+            'Unusual ground motion on this device',
+            style: TextStyle(fontSize: 14.5, color: QColors.brownSoft),
           ),
         ],
       ),
@@ -171,13 +127,15 @@ class _DetectingViewState extends State<_DetectingView>
   }
 }
 
-
 class _ConsensusView extends StatelessWidget {
   final int votes;
   const _ConsensusView({required this.votes});
 
   @override
   Widget build(BuildContext context) {
+    final reached = votes >= MockConfig.consensusNeeded;
+    final lit =
+        ((votes / MockConfig.consensusReached) * 5).clamp(0, 5).floor();
     return Padding(
       padding: const EdgeInsets.all(28),
       child: Column(
@@ -192,44 +150,94 @@ class _ConsensusView extends StatelessWidget {
                 Container(
                   width: 70,
                   height: 70,
-                  decoration: const BoxDecoration(
-                    color: QColors.yellow,
+                  decoration: BoxDecoration(
+                    color: reached ? QColors.green : QColors.yellow,
                     shape: BoxShape.circle,
                   ),
                 )
                     .animate(onPlay: (c) => c.repeat())
                     .scaleXY(begin: 1, end: 2.3, duration: 1300.ms)
                     .fadeOut(duration: 1300.ms),
-                const Icon(Icons.wifi_tethering,
-                    size: 56, color: QColors.brown),
+                Icon(
+                  reached ? Icons.verified : Icons.wifi_tethering,
+                  size: 56,
+                  color: reached ? QColors.green : QColors.brown,
+                ),
               ],
             ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            '$votes of ${MockConfig.consensusPool} nearby devices confirmed',
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Verifying with the crowd before sounding the alarm',
-            style: TextStyle(fontSize: 14, color: QColors.brownSoft),
           ),
           const SizedBox(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(MockConfig.consensusPool, (i) {
-              final confirmed = i < votes;
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              SizedBox(
+                width: 96,
+                child: Text(
+                  '$votes',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    fontSize: 52,
+                    fontWeight: FontWeight.w900,
+                    color: reached ? QColors.green : QColors.brown,
+                    height: 1,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'devices\nconfirmed',
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.1,
+                  fontWeight: FontWeight.w700,
+                  color: QColors.brownSoft,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(5, (i) {
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6),
                 child: Icon(
                   Icons.phone_android,
                   size: 34,
-                  color: confirmed ? QColors.green : QColors.creamDeep,
+                  color: i < lit ? QColors.green : QColors.creamDeep,
                 ),
               );
             }),
+          ),
+          const SizedBox(height: 22),
+          AnimatedOpacity(
+            opacity: reached ? 1 : 0,
+            duration: const Duration(milliseconds: 400),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: QColors.orange, width: 2),
+              ),
+              child: Text(
+                'Estimated magnitude  M ${MockConfig.magnitude}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: QColors.brown,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Within ${MockConfig.consensusRadiusKm.toStringAsFixed(0)} km · ${MockConfig.consensusWindowSeconds}s window',
+            style: const TextStyle(fontSize: 13, color: QColors.brownSoft),
           ),
         ],
       ),
@@ -252,10 +260,10 @@ class _AlarmView extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset('assets/images/Quaky_Danger.png', width: 200)
+            Image.asset('assets/images/Quaky_Danger.png', width: 190)
                 .animate(onPlay: (c) => c.repeat())
                 .shake(hz: 5, rotation: 0.06, duration: 800.ms),
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
             const Text(
               'EARTHQUAKE!',
               style: TextStyle(
@@ -267,12 +275,16 @@ class _AlarmView extends StatelessWidget {
             )
                 .animate(onPlay: (c) => c.repeat(reverse: true))
                 .fade(begin: 1, end: 0.35, duration: 400.ms),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Text(
-              'Confirmed by ${MockConfig.consensusNeeded} nearby devices',
-              style: const TextStyle(fontSize: 15, color: Colors.white70),
+              'M ${MockConfig.magnitude} · confirmed by ${MockConfig.consensusReached} devices',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
             ),
-            const SizedBox(height: 48),
+            const SizedBox(height: 46),
             Container(
               padding:
                   const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
@@ -281,7 +293,7 @@ class _AlarmView extends StatelessWidget {
                 borderRadius: BorderRadius.circular(30),
               ),
               child: const Text(
-                'TAP ANYWHERE TO ANSWER QUACKY',
+                'TAP ANYWHERE TO CONTINUE',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w900,
@@ -300,12 +312,10 @@ class _AlarmView extends StatelessWidget {
 
 class _GeminiLiveView extends StatefulWidget {
   final int countdown;
-  final List<String> captions;
   final VoidCallback onSafe;
   final VoidCallback onSos;
   const _GeminiLiveView({
     required this.countdown,
-    required this.captions,
     required this.onSafe,
     required this.onSos,
   });
@@ -316,12 +326,19 @@ class _GeminiLiveView extends StatefulWidget {
 
 class _GeminiLiveViewState extends State<_GeminiLiveView> {
   VideoPlayerController? _video;
-  bool _videoReady = false;
+  bool _ready = false;
+  String? _analysis;
+  final List<Timer> _scriptTimers = [];
 
   @override
   void initState() {
     super.initState();
     _initVideo();
+    for (final (sec, line) in MockConfig.geminiAnalysis) {
+      _scriptTimers.add(Timer(Duration(seconds: sec), () {
+        if (mounted) setState(() => _analysis = line);
+      }));
+    }
   }
 
   Future<void> _initVideo() async {
@@ -329,7 +346,7 @@ class _GeminiLiveViewState extends State<_GeminiLiveView> {
       final c = VideoPlayerController.asset(MockConfig.geminiFeedAsset);
       await c.initialize();
       await c.setLooping(true);
-      await c.setVolume(0);
+      await c.setVolume(1);
       await c.play();
       if (!mounted) {
         c.dispose();
@@ -337,7 +354,7 @@ class _GeminiLiveViewState extends State<_GeminiLiveView> {
       }
       setState(() {
         _video = c;
-        _videoReady = true;
+        _ready = true;
       });
     } catch (_) {
     }
@@ -345,6 +362,9 @@ class _GeminiLiveViewState extends State<_GeminiLiveView> {
 
   @override
   void dispose() {
+    for (final t in _scriptTimers) {
+      t.cancel();
+    }
     _video?.dispose();
     super.dispose();
   }
@@ -352,214 +372,170 @@ class _GeminiLiveViewState extends State<_GeminiLiveView> {
   @override
   Widget build(BuildContext context) {
     final urgent = widget.countdown <= 10;
-    final caption = widget.captions.isEmpty ? null : widget.captions.last;
-
-    return Stack(
-      fit: StackFit.expand,
+    final ringColor = urgent ? QColors.red : QColors.orange;
+    return Column(
       children: [
-        // Camera feed.
-        if (_videoReady && _video != null)
-          FittedBox(
-            fit: BoxFit.cover,
-            clipBehavior: Clip.hardEdge,
-            child: SizedBox(
-              width: _video!.value.size.width,
-              height: _video!.value.size.height,
-              child: VideoPlayer(_video!),
-            ),
-          )
-        else
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF101418), Color(0xFF1C232B)],
+        const SizedBox(height: 10),
+        SizedBox(
+          width: 92,
+          height: 92,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox(
+                width: 92,
+                height: 92,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(
+                    begin: (widget.countdown + 1) /
+                        MockConfig.geminiWindowSeconds,
+                    end: widget.countdown / MockConfig.geminiWindowSeconds,
+                  ),
+                  duration: const Duration(seconds: 1),
+                  builder: (context, v, _) => CircularProgressIndicator(
+                    value: v,
+                    strokeWidth: 8,
+                    strokeCap: StrokeCap.round,
+                    color: ringColor,
+                    backgroundColor: QColors.creamDeep,
+                  ),
+                ),
               ),
-            ),
-            child: Center(
-              child: const Icon(Icons.videocam,
-                      size: 72, color: Colors.white24)
-                  .animate(onPlay: (c) => c.repeat(reverse: true))
-                  .fade(begin: 0.4, end: 1, duration: 900.ms),
-            ),
+              Text(
+                '${widget.countdown}',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w900,
+                  color: urgent ? QColors.red : QColors.brown,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
           ),
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black87,
-                Colors.transparent,
-                Colors.transparent,
-                Colors.black87,
-              ],
-              stops: [0, 0.25, 0.6, 1],
+        ),
+
+        Expanded(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(22),
+                    child: AspectRatio(
+                      aspectRatio: 4 / 3,
+                      child: (_ready && _video != null)
+                          ? FittedBox(
+                              fit: BoxFit.cover,
+                              clipBehavior: Clip.hardEdge,
+                              child: SizedBox(
+                                width: _video!.value.size.width,
+                                height: _video!.value.size.height,
+                                child: VideoPlayer(_video!),
+                              ),
+                            )
+                          : Container(
+                              color: const Color(0xFF12181F),
+                              child: Center(
+                                child: const Icon(Icons.videocam,
+                                        size: 64, color: Colors.white24)
+                                    .animate(
+                                        onPlay: (c) =>
+                                            c.repeat(reverse: true))
+                                    .fade(
+                                        begin: 0.4,
+                                        end: 1,
+                                        duration: 900.ms),
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (_analysis != null)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border:
+                            Border.all(color: QColors.creamDeep, width: 2),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.auto_awesome,
+                                  color: QColors.orange, size: 20)
+                              .animate(
+                                  onPlay: (c) => c.repeat(reverse: true))
+                              .fade(begin: 0.5, end: 1, duration: 700.ms),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TypingText(
+                              _analysis!,
+                              key: ValueKey(_analysis),
+                              textAlign: TextAlign.left,
+                              charDelay: const Duration(milliseconds: 24),
+                              style: const TextStyle(
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.w700,
+                                height: 1.35,
+                                color: QColors.brown,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ).animate().fadeIn(),
+                ],
+              ),
             ),
           ),
         ),
 
-        Column(
-          children: [
-            const SizedBox(height: 10),
-            // Top bar: live badge + countdown.
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white24),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 9,
-                          height: 9,
-                          decoration: const BoxDecoration(
-                            color: QColors.red,
-                            shape: BoxShape.circle,
-                          ),
-                        )
-                            .animate(onPlay: (c) => c.repeat(reverse: true))
-                            .fade(begin: 1, end: 0.2, duration: 600.ms),
-                        const SizedBox(width: 7),
-                        const Text(
-                          'GEMINI LIVE',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Spacer(),
-                  // Countdown ring.
-                  SizedBox(
-                    width: 54,
-                    height: 54,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        CircularProgressIndicator(
-                          value: widget.countdown /
-                              MockConfig.geminiWindowSeconds,
-                          strokeWidth: 5,
-                          color: urgent ? QColors.red : QColors.yellow,
-                          backgroundColor: Colors.white24,
-                        ),
-                        Text(
-                          '${widget.countdown}',
-                          style: TextStyle(
-                            color: urgent ? QColors.red : Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Spacer(),
-
-            if (caption != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Image.asset('assets/images/Quaky_Speech.png', width: 54)
-                        .animate(onPlay: (c) => c.repeat(reverse: true))
-                        .scaleXY(end: 1.08, duration: 700.ms),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.65),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.white24),
-                        ),
-                        child: TypingText(
-                          caption,
-                          key: ValueKey(caption),
-                          textAlign: TextAlign.left,
-                          charDelay: const Duration(milliseconds: 28),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16.5,
-                            fontWeight: FontWeight.w700,
-                            height: 1.3,
-                          ),
-                        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+          child: Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 88,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: QColors.green,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
                       ),
                     ),
-                  ],
+                    onPressed: widget.onSafe,
+                    child: const Text("I'M SAFE",
+                        style: TextStyle(
+                            fontSize: 23, fontWeight: FontWeight.w900)),
+                  ),
                 ),
-              ).animate().fadeIn().slideY(begin: 0.2),
-            const SizedBox(height: 14),
-
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 84,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: QColors.green,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                        ),
-                        onPressed: widget.onSafe,
-                        child: const Text(
-                          "I'M SAFE",
-                          style: TextStyle(
-                              fontSize: 22, fontWeight: FontWeight.w900),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: SizedBox(
-                      height: 84,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: QColors.red,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                        ),
-                        onPressed: widget.onSos,
-                        child: const Text(
-                          'SOS',
-                          style: TextStyle(
-                              fontSize: 22, fontWeight: FontWeight.w900),
-                        ),
-                      ),
-                    ),
-                  ).animate(onPlay: (c) => c.repeat(reverse: true)).scaleXY(
-                        end: 1.03,
-                        duration: 600.ms,
-                      ),
-                ],
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 88,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: QColors.red,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                    ),
+                    onPressed: widget.onSos,
+                    child: const Text('SOS',
+                        style: TextStyle(
+                            fontSize: 23, fontWeight: FontWeight.w900)),
+                  ),
+                ).animate(onPlay: (c) => c.repeat(reverse: true)).scaleXY(
+                    end: 1.03, duration: 600.ms),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -588,64 +564,253 @@ class _ResultView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final qc = context.watch<QuakeController>();
     final color = sos ? QColors.red : QColors.green;
-    return Column(
-      children: [
-        Container(
-          width: double.infinity,
-          color: color,
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-          child: Column(
-            children: [
-              Text(
-                sos ? '🆘 SOS — RESCUE ALERT ACTIVE' : '✓ YOU ARE MARKED SAFE',
+    return Container(
+      color: QColors.cream,
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            color: color,
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+            child: Column(
+              children: [
+                Text(
+                  sos ? '🆘 SOS — RESCUE ALERT ACTIVE' : '✓ YOU ARE MARKED SAFE',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  sos
+                      ? 'Alerting nearby Quakers and Search & Rescue with your location and camera context'
+                      : 'Nearby Quakers can see you are okay',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12.5),
+                ),
+              ],
+            ),
+          ).animate().slideY(begin: -1, curve: Curves.easeOut),
+          Expanded(child: CommunityMap(sosMode: sos)),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                if (sos) ...[
+                  if (qc.locationSource == LocationSource.userConfirmed)
+                    _ConfirmedLocationCard(note: qc.locationNote)
+                  else
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(56),
+                        side: const BorderSide(color: QColors.orange, width: 2),
+                      ),
+                      icon: const Icon(Icons.mic, color: QColors.orange),
+                      label: const Text('Tell rescuers exactly where you are'),
+                      onPressed: () => _openVoiceOverride(context),
+                    ),
+                  const SizedBox(height: 10),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: QColors.green,
+                      minimumSize: const Size.fromHeight(60),
+                    ),
+                    icon: const Icon(Icons.check_circle_outline, size: 24),
+                    label: const Text("I'M SAFE NOW"),
+                    onPressed: () => context.read<QuakeController>().markSafe(),
+                  )
+                      .animate(onPlay: (c) => c.repeat(reverse: true))
+                      .scaleXY(end: 1.02, duration: 600.ms),
+                  const SizedBox(height: 10),
+                ],
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.home),
+                  label: Text(drill ? 'Finish drill' : 'Back to home'),
+                  onPressed: () => _finish(context),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openVoiceOverride(BuildContext context) {
+    final qc = context.read<QuakeController>();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _VoiceOverrideSheet(
+        onConfirmed: (text) => qc.confirmLocationByVoice(text),
+      ),
+    );
+  }
+}
+
+class _ConfirmedLocationCard extends StatelessWidget {
+  final String note;
+  const _ConfirmedLocationCard({required this.note});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: QColors.green.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: QColors.green, width: 2),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.verified, color: QColors.green),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'LOCATION CONFIRMED BY VOICE',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    color: QColors.green,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '“$note”',
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    color: QColors.brown,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn().slideY(begin: 0.2);
+  }
+}
+
+class _VoiceOverrideSheet extends StatefulWidget {
+  final ValueChanged<String> onConfirmed;
+  const _VoiceOverrideSheet({required this.onConfirmed});
+
+  @override
+  State<_VoiceOverrideSheet> createState() => _VoiceOverrideSheetState();
+}
+
+class _VoiceOverrideSheetState extends State<_VoiceOverrideSheet> {
+  bool _listening = true;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(milliseconds: 2600), () {
+      if (mounted) setState(() => _listening = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        24,
+        20,
+        24,
+        24 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      decoration: const BoxDecoration(
+        color: QColors.cream,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset('assets/images/Quaky_Speech_To_Text.png', width: 96),
+          const SizedBox(height: 12),
+          if (_listening) ...[
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 66,
+                  height: 66,
+                  decoration: const BoxDecoration(
+                    color: QColors.orange,
+                    shape: BoxShape.circle,
+                  ),
+                )
+                    .animate(onPlay: (c) => c.repeat())
+                    .scaleXY(begin: 1, end: 1.9, duration: 1100.ms)
+                    .fadeOut(duration: 1100.ms),
+                const CircleAvatar(
+                  radius: 33,
+                  backgroundColor: QColors.orange,
+                  child: Icon(Icons.mic, color: Colors.white, size: 32),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Listening… say exactly where you are',
+              style: TextStyle(fontSize: 15, color: QColors.brownSoft),
+            ),
+          ] else ...[
+            const Text(
+              'HEARD YOU SAY',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                color: QColors.brownSoft,
+                letterSpacing: 1,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: QColors.orange, width: 2),
+              ),
+              child: TypingText(
+                MockConfig.voiceOverrideTranscript,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                sos
-                    ? 'Your GPS, camera frames and situation summary are being shared with nearby users and Search & Rescue'
-                    : 'Nearby users can see you are okay',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white70, fontSize: 12.5),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: QColors.green,
+                minimumSize: const Size.fromHeight(58),
               ),
-            ],
-          ),
-        ).animate().slideY(begin: -1, curve: Curves.easeOut),
-        Expanded(child: CommunityMap(sosMode: sos)),
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              if (sos) ...[
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: QColors.green,
-                    minimumSize: const Size.fromHeight(64),
-                  ),
-                  icon: const Icon(Icons.check_circle_outline, size: 26),
-                  label: const Text("I'M SAFE NOW"),
-                  onPressed: () =>
-                      context.read<QuakeController>().markSafe(),
-                )
-                    .animate(onPlay: (c) => c.repeat(reverse: true))
-                    .scaleXY(end: 1.03, duration: 600.ms),
-                const SizedBox(height: 10),
-              ],
-              OutlinedButton.icon(
-                icon: const Icon(Icons.home),
-                label: Text(drill ? 'Finish drill' : 'Back to home'),
-                onPressed: () => _finish(context),
-              ),
-            ],
-          ),
-        ),
-      ],
+              icon: const Icon(Icons.check),
+              label: const Text('Confirm this location'),
+              onPressed: () {
+                widget.onConfirmed(MockConfig.voiceOverrideTranscript);
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
