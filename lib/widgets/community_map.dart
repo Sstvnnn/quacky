@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../core/app_theme.dart';
 import '../screens/sar/emergency_call_screen.dart';
 import '../state/incident_controller.dart';
+import '../state/profile_service.dart';
 
 typedef _Neighbor = Quaker;
 
@@ -34,6 +35,7 @@ class _CommunityMapState extends State<CommunityMap> {
   _Neighbor? _alertFor;
   _Neighbor? _responder;
   _Neighbor? _helpTarget;
+  String? _myAvatarUrl;
 
   static const _dangerFrames = [
     'assets/images/Danger_Pic1.jpg',
@@ -51,6 +53,12 @@ class _CommunityMapState extends State<CommunityMap> {
     }
 
     _neighbors = buildRoster();
+
+    ProfileService.fetchProfile().then((p) {
+      if (mounted && p?.avatarUrl != null) {
+        setState(() => _myAvatarUrl = p!.avatarUrl);
+      }
+    }).catchError((_) {});
 
     if (widget.sosMode) {
       for (final (i, n) in _neighbors.indexed) {
@@ -235,7 +243,10 @@ class _CommunityMapState extends State<CommunityMap> {
                   height: 104,
                   child: widget.sarMode
                       ? const _RescuerPin()
-                      : _SelfPin(sos: widget.sosMode),
+                      : _SelfPin(
+                          sos: widget.sosMode,
+                          avatarUrl: _myAvatarUrl,
+                        ),
                 ),
               ],
             ),
@@ -661,15 +672,22 @@ class _RescuerPin extends StatelessWidget {
 
 class _SelfPin extends StatelessWidget {
   final bool sos;
-  const _SelfPin({required this.sos});
+  final String? avatarUrl;
+  const _SelfPin({required this.sos, this.avatarUrl});
 
   @override
   Widget build(BuildContext context) {
     final color = sos ? QColors.red : QColors.green;
+    final duck = Image.asset(
+      sos
+          ? 'assets/images/Quaky_Danger.png'
+          : 'assets/images/Quaky_Safe.png',
+      fit: BoxFit.contain,
+    );
     Widget avatar = Container(
       width: 56,
       height: 56,
-      padding: const EdgeInsets.all(5),
+      padding: avatarUrl == null ? const EdgeInsets.all(5) : EdgeInsets.zero,
       decoration: BoxDecoration(
         color: Colors.white,
         shape: BoxShape.circle,
@@ -678,12 +696,16 @@ class _SelfPin extends StatelessWidget {
           BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
         ],
       ),
-      child: Image.asset(
-        sos
-            ? 'assets/images/Quaky_Danger.png'
-            : 'assets/images/Quaky_Safe.png',
-        fit: BoxFit.contain,
-      ),
+      child: avatarUrl == null
+          ? duck
+          : ClipOval(
+              child: Image.network(
+                avatarUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) =>
+                    Padding(padding: const EdgeInsets.all(5), child: duck),
+              ),
+            ),
     );
 
     if (sos) {
