@@ -10,6 +10,7 @@ class Profile {
   final String? avatarUrl;
   final bool hasCompletedSimulation;
   final String status;
+  final String role;
 
   Profile({
     required this.id,
@@ -19,7 +20,10 @@ class Profile {
     this.avatarUrl,
     required this.hasCompletedSimulation,
     required this.status,
+    required this.role,
   });
+
+  bool get isSar => role == 'sar';
 
   factory Profile.fromMap(Map<String, dynamic> m) => Profile(
         id: m['id'] as String,
@@ -30,6 +34,7 @@ class Profile {
         hasCompletedSimulation:
             (m['has_completed_simulation'] as bool?) ?? false,
         status: (m['status'] as String?) ?? 'safe',
+        role: (m['role'] as String?) ?? 'user',
       );
 }
 
@@ -101,6 +106,21 @@ class ProfileService {
       'id': uid,
       'display_name': _metadataName(),
       'status': status,
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  static Future<void> setLocation({
+    required String source,
+    required String note,
+  }) async {
+    final uid = _uid;
+    if (uid == null) return;
+    await _client.from('profiles').upsert({
+      'id': uid,
+      'display_name': _metadataName(),
+      'location_source': source,
+      'location_note': note,
       'updated_at': DateTime.now().toIso8601String(),
     });
   }

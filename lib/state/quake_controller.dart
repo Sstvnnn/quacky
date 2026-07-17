@@ -3,20 +3,21 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 
 import '../core/mock_config.dart';
 import 'profile_service.dart';
 
 enum QuakePhase {
   idle,
-  detecting, 
-  consensus, 
-  alarm, 
-  geminiLive, 
+  detecting,
+  consensus,
+  alarm,
+  geminiLive,
   safe,
   sos,
 }
+
+enum LocationSource { aiSuggestion, userConfirmed }
 
 class QuakeController extends ChangeNotifier {
   QuakePhase _phase = QuakePhase.idle;
@@ -26,39 +27,40 @@ class QuakeController extends ChangeNotifier {
   int consensusVotes = 0;
   int countdown = MockConfig.geminiWindowSeconds;
 
-  final List<String> captions = [];
+  LocationSource locationSource = LocationSource.aiSuggestion;
+  String locationNote = '';
 
   final AudioPlayer _siren = AudioPlayer();
-  final FlutterTts _tts = FlutterTts();
 
   Timer? _stepTimer;
   Timer? _countdownTimer;
   Timer? _hapticTimer;
-  final List<Timer> _scriptTimers = [];
 
   void _go(QuakePhase p) {
     _phase = p;
     notifyListeners();
   }
 
+
   void startEmergency({bool drill = false}) {
     _cancelTimers();
     isDrill = drill;
     consensusVotes = 0;
     countdown = MockConfig.geminiWindowSeconds;
-    captions.clear();
+    locationSource = LocationSource.aiSuggestion;
+    locationNote = '';
     _go(QuakePhase.detecting);
-    _stepTimer = Timer(const Duration(milliseconds: 2600), _startConsensus);
+    _stepTimer = Timer(const Duration(milliseconds: 2800), _startConsensus);
   }
 
   void _startConsensus() {
     _go(QuakePhase.consensus);
-    _stepTimer = Timer.periodic(const Duration(milliseconds: 700), (t) {
-      consensusVotes++;
+    _stepTimer = Timer.periodic(const Duration(milliseconds: 45), (t) {
+      consensusVotes += 1;
       notifyListeners();
-      if (consensusVotes >= MockConfig.consensusNeeded) {
+      if (consensusVotes >= MockConfig.consensusReached) {
         t.cancel();
-        _stepTimer = Timer(const Duration(milliseconds: 600), _startAlarm);
+        _stepTimer = Timer(const Duration(milliseconds: 700), _startAlarm);
       }
     });
   }
@@ -87,15 +89,6 @@ class QuakeController extends ChangeNotifier {
 
   void _startGeminiLive() {
     _go(QuakePhase.geminiLive);
-
-    for (final (sec, line) in MockConfig.geminiScript) {
-      _scriptTimers.add(Timer(Duration(seconds: sec), () {
-        if (_phase != QuakePhase.geminiLive) return;
-        captions.add(line);
-        notifyListeners();
-        _speak(line);
-      }));
-    }
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       countdown--;
       notifyListeners();
@@ -118,28 +111,32 @@ class QuakeController extends ChangeNotifier {
     _resolve(QuakePhase.sos);
   }
 
-  void _resolve(QuakePhase result) {
-    _cancelTimers();
-    _tts.stop();
-    _go(result);
+
+  void confirmLocationByVoice(String transcript) {
+    locationSource = LocationSource.userConfirmed;
+    locationNote = transcript;
+    notifyListeners();
     if (!isDrill) {
-      ProfileService.setStatus(result == QuakePhase.sos ? 'sos' : 'safe')
-          .catchError((_) {});
+      ProfileService.setLocation(
+        source: 'user_confirmed',
+        note: transcript,
+      ).catchError((_) {});
     }
   }
 
-  Future<void> _speak(String text) async {
-    if (MockConfig.mockTts) return;
-    try {
-      await _tts.setSpeechRate(0.48);
-      await _tts.speak(text);
-    } catch (_) {}
+  void _resolve(QuakePhase result) {
+    _cancelTimers();
+    _go(result);
+    if (!isDrill) {
+      ProfileService.setStatus(
+        result == QuakePhase.sos ? 'sos' : 'safe',
+      ).catchError((_) {});
+    }
   }
 
   void reset() {
     _cancelTimers();
     _siren.stop();
-    _tts.stop();
     isDrill = false;
     _phase = QuakePhase.idle;
     notifyListeners();
@@ -149,17 +146,12 @@ class QuakeController extends ChangeNotifier {
     _stepTimer?.cancel();
     _countdownTimer?.cancel();
     _hapticTimer?.cancel();
-    for (final t in _scriptTimers) {
-      t.cancel();
-    }
-    _scriptTimers.clear();
   }
 
   @override
   void dispose() {
     _cancelTimers();
     _siren.dispose();
-    _tts.stop();
     super.dispose();
   }
 }
