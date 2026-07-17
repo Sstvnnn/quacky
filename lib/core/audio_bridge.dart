@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:services';
+import 'package:flutter/services.dart';
 
 class AudioBridge {
   static const MethodChannel _methods = MethodChannel('quacky/audio/methods');
