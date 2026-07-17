@@ -167,36 +167,29 @@ class _ConsensusView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              SizedBox(
-                width: 96,
-                child: Text(
-                  '$votes',
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                    fontSize: 52,
-                    fontWeight: FontWeight.w900,
-                    color: reached ? QColors.green : QColors.brown,
-                    height: 1,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
+          SizedBox(
+            width: 180,
+            child: Text(
+              '$votes',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 52,
+                fontWeight: FontWeight.w900,
+                color: reached ? QColors.green : QColors.brown,
+                height: 1,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
-              const SizedBox(width: 10),
-              const Text(
-                'devices\nconfirmed',
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.1,
-                  fontWeight: FontWeight.w700,
-                  color: QColors.brownSoft,
-                ),
-              ),
-            ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'devices confirmed nearby',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w700,
+              color: QColors.brownSoft,
+            ),
           ),
           const SizedBox(height: 18),
           Row(
@@ -216,21 +209,12 @@ class _ConsensusView extends StatelessWidget {
           AnimatedOpacity(
             opacity: reached ? 1 : 0,
             duration: const Duration(milliseconds: 400),
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: QColors.orange, width: 2),
-              ),
-              child: Text(
-                'Estimated magnitude  M ${MockConfig.magnitude}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  color: QColors.brown,
-                ),
+            child: Text(
+              'Estimated magnitude  M ${MockConfig.magnitude}',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                color: QColors.brown,
               ),
             ),
           ),
@@ -463,13 +447,22 @@ class _GeminiLiveViewState extends State<_GeminiLiveView> {
                             Border.all(color: QColors.creamDeep, width: 2),
                       ),
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const Icon(Icons.auto_awesome,
-                                  color: QColors.orange, size: 20)
+                          Image.asset(
+                            'assets/images/Quaky_Speech.png',
+                            width: 44,
+                            key: ValueKey('quack-$_analysis'),
+                          )
                               .animate(
                                   onPlay: (c) => c.repeat(reverse: true))
-                              .fade(begin: 0.5, end: 1, duration: 700.ms),
+                              .rotate(
+                                begin: -0.02,
+                                end: 0.02,
+                                duration: 500.ms,
+                                curve: Curves.easeInOut,
+                              )
+                              .scaleXY(end: 1.07, duration: 500.ms),
                           const SizedBox(width: 10),
                           Expanded(
                             child: TypingText(

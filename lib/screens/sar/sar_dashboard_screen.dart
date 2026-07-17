@@ -1,42 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/app_theme.dart';
+import '../../state/incident_controller.dart';
 import '../../widgets/community_map.dart';
-import '../auth/login_screen.dart';
 
 class SarDashboardScreen extends StatelessWidget {
   const SarDashboardScreen({super.key});
 
-  Future<void> _logout(BuildContext context) async {
-    await Supabase.instance.client.auth.signOut();
-    if (!context.mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (_) => false,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final inc = context.watch<IncidentController>();
+    final clear = inc.allClear;
+    final accent = clear ? QColors.green : QColors.red;
     return Scaffold(
       backgroundColor: QColors.nightIndigo,
       body: SafeArea(
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+              padding: const EdgeInsets.fromLTRB(4, 6, 16, 8),
               child: Row(
                 children: [
-                  const Icon(Icons.shield_moon, color: Colors.white, size: 30),
-                  const SizedBox(width: 10),
-                  const Expanded(
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'SAR OPERATIONS',
+                        const Text(
+                          'LIVE OPERATIONS MAP',
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w900,
@@ -45,60 +41,136 @@ class SarDashboardScreen extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Live incident · Jakarta sector 4',
-                          style:
-                              TextStyle(color: Colors.white54, fontSize: 12),
+                          clear
+                              ? 'Jakarta sector 4 · sector clear'
+                              : 'Jakarta sector 4 · live incident',
+                          style: const TextStyle(
+                              color: Colors.white54, fontSize: 12),
                         ),
                       ],
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Sign out',
-                    icon: const Icon(Icons.logout, color: Colors.white54),
-                    onPressed: () => _logout(context),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 400),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: accent,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      clear ? 'ALL CLEAR' : '${inc.activeSos} ACTIVE',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  _Stat(label: 'ACTIVE SOS', value: '2', color: QColors.red),
-                  SizedBox(width: 10),
-                  _Stat(label: 'SAFE', value: '3', color: QColors.green),
-                  SizedBox(width: 10),
                   _Stat(
-                      label: 'CLEARED', value: '0', color: Colors.blueGrey),
+                    label: 'ACTIVE SOS',
+                    value: inc.activeSos,
+                    color: QColors.red,
+                  ),
+                  const SizedBox(width: 10),
+                  _Stat(
+                    label: 'SAFE',
+                    value: inc.safeCount,
+                    color: QColors.green,
+                  ),
+                  const SizedBox(width: 10),
+                  _Stat(
+                    label: 'CLEARED',
+                    value: inc.clearedCount,
+                    color: Colors.blueGrey,
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 12),
             Expanded(
-              child: ClipRRect(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(24)),
-                child: Stack(
-                  children: [
-                    const CommunityMap(sarMode: true),
-                    Positioned(
-                      left: 16,
-                      bottom: 16,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.7),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text(
-                          'Tap a red node to open rescue details',
-                          style:
-                              TextStyle(color: Colors.white, fontSize: 12.5),
-                        ),
-                      ),
-                    ).animate().fadeIn(delay: 400.ms),
-                  ],
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: accent, width: 3),
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(24)),
+                  child: Stack(
+                    children: [
+                      const CommunityMap(sarMode: true),
+                      if (clear)
+                        Positioned(
+                          top: 14,
+                          left: 16,
+                          right: 16,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: QColors.green,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: const [
+                                BoxShadow(
+                                    color: Colors.black38, blurRadius: 10),
+                              ],
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.verified,
+                                    color: Colors.white, size: 22),
+                                SizedBox(width: 8),
+                                Text(
+                                  'ALL NODES CLEARED',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 15,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                              .animate()
+                              .slideY(
+                                begin: -1.5,
+                                curve: Curves.easeOut,
+                                duration: 400.ms,
+                              )
+                              .then()
+                              .shake(hz: 2, rotation: 0.004, duration: 300.ms),
+                        )
+                      else
+                        Positioned(
+                          left: 16,
+                          bottom: 16,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.7),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'Tap a red node to open rescue details',
+                              style: TextStyle(
+                                  color: Colors.white, fontSize: 12.5),
+                            ),
+                          ),
+                        ).animate().fadeIn(delay: 400.ms),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -111,10 +183,13 @@ class SarDashboardScreen extends StatelessWidget {
 
 class _Stat extends StatelessWidget {
   final String label;
-  final String value;
+  final int value;
   final Color color;
-  const _Stat(
-      {required this.label, required this.value, required this.color});
+  const _Stat({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -128,13 +203,21 @@ class _Stat extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Text(
-              value,
-              style: TextStyle(
-                color: color,
-                fontSize: 26,
-                fontWeight: FontWeight.w900,
-                height: 1,
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 350),
+              transitionBuilder: (child, anim) => ScaleTransition(
+                scale: anim,
+                child: FadeTransition(opacity: anim, child: child),
+              ),
+              child: Text(
+                '$value',
+                key: ValueKey(value),
+                style: TextStyle(
+                  color: color,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
               ),
             ),
             const SizedBox(height: 3),

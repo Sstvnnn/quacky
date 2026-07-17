@@ -8,7 +8,7 @@ import '../../core/mock_config.dart';
 import '../../state/incident_controller.dart';
 import '../auth/login_screen.dart';
 import 'sar_dashboard_screen.dart';
-// import 'sar_incidents_screen.dart';
+import 'sar_incidents_screen.dart';
 
 class SarHomeScreen extends StatelessWidget {
   const SarHomeScreen({super.key});
