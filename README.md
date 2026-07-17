@@ -4,7 +4,7 @@
 
 # QUAKY
 
-### *With Quaky, Let's Save More Lives*
+### _With Quaky, Let's Save More Lives_
 
 An earthquake companion that watches while you sleep, wakes you before the shaking peaks,
 talks you through it, and makes sure somebody comes for you.
@@ -25,7 +25,7 @@ talks you through it, and makes sure somebody comes for you.
 ## Inspiration
 
 One of our teammates never woke up to alarms. His mom gave up on them and started using a rubber
-duck instead. Every morning she would squeeze it next to his ear, and that stupid little *quack*
+duck instead. Every morning she would squeeze it next to his ear, and that stupid little _quack_
 did what no alarm clock ever managed: he woke up instantly, every time.
 
 That story stuck with us, because Indonesia sits directly on the Pacific Ring of Fire and we kept
@@ -50,7 +50,7 @@ turns every user into a rescuer for the people around them. We call our users **
 
 **🦆 It watches while you sleep.** The Quaky mascot dozes on your home screen. Underneath, a 1D
 convolutional neural network reads the accelerometer in rolling 2 second windows, trained to spot
-the rhythmic multi axis signature of P-waves (the small fast waves that arrive *before* the
+the rhythmic multi axis signature of P-waves (the small fast waves that arrive _before_ the
 destructive ones) while ignoring walking, driving, and dropped phones. We cut microphone monitoring
 from our original design: accelerometer data costs far less battery than continuous audio analysis,
 and it means Quaky never listens inside your home. Privacy came free with the better engineering.
@@ -68,7 +68,7 @@ point is turning a sleeping person into an awake one.
 
 **👁️ Gemini Live looks around the room with you.** The moment you silence the alarm, your camera
 opens and Quaky starts talking. Gemini Live streams what it sees and speaks back with instructions
-about *your* room: stay clear of that window, get under that table, there is debris in the doorway.
+about _your_ room: stay clear of that window, get under that table, there is debris in the doorway.
 The screen shows exactly three things, because a panicking person cannot parse more: a 4:3 camera
 feed, a 60 second countdown ring, and two palm sized buttons. While it talks, Gemini is quietly
 building a written picture of your surroundings.
@@ -82,8 +82,8 @@ even deep in SOS state, and cancels your alert the moment you press it.
 **📦 The rescue payload.** A red dot tells a rescuer nothing, so going SOS broadcasts a package:
 your profile photo, name, age and gender (a rescuer should know they are looking for a 7 year old,
 not a 68 year old), your GPS and live distance, the last 4 frames from your camera, and Gemini's
-written read of the scene: *"2nd-floor bedroom. Partial ceiling collapse, heavy debris on the floor,
-shattered window on the north wall. Doorway partially blocked. Subject responsive."*
+written read of the scene: _"2nd-floor bedroom. Partial ceiling collapse, heavy debris on the floor,
+shattered window on the north wall. Doorway partially blocked. Subject responsive."_
 
 **🗣️ AI Suggestion vs User Confirmed.** Visual AI is good, not perfect. A camera can see a bedroom
 and miss that you are wedged under the stairs. So Quakers in SOS can override it by voice, and the
@@ -96,7 +96,7 @@ COMING TO HELP** draws an animated route and marks the node as covered so two pe
 a rescue. Only then can you **MARK AS SAVED**, because you cannot rescue someone you never went to.
 On the victim's own screen the map flips: they cannot rescue anyone, so instead they watch their
 broadcast reach neighbors one by one, then watch a name and a face start moving toward them. In the
-worst moment of someone's life, *"Sari is coming to help, 90 m away"* is the whole product.
+worst moment of someone's life, _"Sari is coming to help, 90 m away"_ is the whole product.
 
 **🛡️ SAR Operations console.** Search and Rescue personnel get a pre-seeded role with no public
 registration, live counters (ACTIVE SOS / SAFE / CLEARED), an incident view with every victim's full
@@ -104,18 +104,14 @@ payload, and an operations map that routes them to the nearest red node. Clearin
 every counter in real time, and clearing the last one turns the whole console green. They also get
 one thing citizens do not: **EMERGENCY CALL**, for direct audio contact.
 
-**🎓 The drill nobody can skip.** Registering forces you through a full simulated earthquake: real
-alarm, real Gemini triage, real countdown. Muscle memory gets built before the emergency, never
-during it. The `has_completed_simulation` flag lives in the database, so there is no way around it.
-
 ## Screenshots
 
 <div align="center">
 
-| Community Map, Safe Mode |
-|:---:|
-| <img src="assets/screenshots/map.png" width="280" /> |
-| *Live Quaker statuses, the nearest SOS node highlighted with distance, and a targeted rescue alert* |
+|                                      Community Map, Safe Mode                                       |
+| :-------------------------------------------------------------------------------------------------: |
+|                        <img src="assets/screenshots/map.png" width="280" />                         |
+| _Live Quaker statuses, the nearest SOS node highlighted with distance, and a targeted rescue alert_ |
 
 </div>
 
@@ -133,19 +129,19 @@ during it. The `has_completed_simulation` flag lives in the database, so there i
 
 ## How we built it
 
-| Layer | Technology | What it does |
-|:---|:---|:---|
-| **Mobile client** | Flutter · Dart `^3.12.2` | Single codebase, 60fps animation, native sensor and camera access |
-| **Edge ML** | TensorFlow Lite (1D CNN) | Classifies 2 second accelerometer windows on device |
-| **ML training** | TensorFlow · Modal | Cloud trained on seismic waveform data, dynamic-range quantized |
-| **Backend & DB** | Supabase (PostgreSQL) | Auth, profiles, storage, state, with no separate server |
-| **Consensus engine** | PostGIS + SQL triggers | Radius and time window correlation of device pings |
-| **Realtime** | Supabase Realtime | Broadcasts the master alarm and SOS status instantly |
-| **AI triage** | Gemini Live API | Streaming camera and audio understanding, spoken guidance |
-| **Token broker** | Supabase Edge Functions (Deno) | Mints ephemeral Gemini tokens, so the API key never ships in the app |
-| **Maps** | `flutter_map` + OpenStreetMap | Zero key, zero billing mapping with custom pins and routing |
-| **State** | `provider` (ChangeNotifier) | One state machine drives the entire emergency flow |
-| **Motion** | `flutter_animate` | Every transition, pulse, and reveal |
+| Layer                | Technology                     | What it does                                                         |
+| :------------------- | :----------------------------- | :------------------------------------------------------------------- |
+| **Mobile client**    | Flutter · Dart `^3.12.2`       | Single codebase, 60fps animation, native sensor and camera access    |
+| **Edge ML**          | TensorFlow Lite (1D CNN)       | Classifies 2 second accelerometer windows on device                  |
+| **ML training**      | TensorFlow · Modal             | Cloud trained on seismic waveform data, dynamic-range quantized      |
+| **Backend & DB**     | Supabase (PostgreSQL)          | Auth, profiles, storage, state, with no separate server              |
+| **Consensus engine** | PostGIS + SQL triggers         | Radius and time window correlation of device pings                   |
+| **Realtime**         | Supabase Realtime              | Broadcasts the master alarm and SOS status instantly                 |
+| **AI triage**        | Gemini Live API                | Streaming camera and audio understanding, spoken guidance            |
+| **Token broker**     | Supabase Edge Functions (Deno) | Mints ephemeral Gemini tokens, so the API key never ships in the app |
+| **Maps**             | `flutter_map` + OpenStreetMap  | Zero key, zero billing mapping with custom pins and routing          |
+| **State**            | `provider` (ChangeNotifier)    | One state machine drives the entire emergency flow                   |
+| **Motion**           | `flutter_animate`              | Every transition, pulse, and reveal                                  |
 
 ```mermaid
 flowchart TD
@@ -222,7 +218,7 @@ took it seriously, most of our decisions made themselves.
 
 **Built for Garuda Hacks 7.0** 🇮🇩
 
-*With Quaky, Let's Save More Lives*
+_With Quaky, Let's Save More Lives_
 
 <img src="assets/screenshots/Quaky_Logo.png" alt="Quaky" width="80" />
 
