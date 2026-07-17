@@ -5,45 +5,35 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import 'package:provider/provider.dart';
+
 import '../core/app_theme.dart';
-import '../core/mock_config.dart';
+import '../screens/sar/emergency_call_screen.dart';
+import '../state/incident_controller.dart';
 
-enum NeighborStatus { safe, sos, saved }
-
-class _Neighbor {
-  final String name;
-  final int age;
-  final String gender;
-  final String avatarAsset;
-  final LatLng point;
-  final String distance;
-  NeighborStatus status = NeighborStatus.safe;
-
-  _Neighbor({
-    required this.name,
-    required this.age,
-    required this.gender,
-    required this.avatarAsset,
-    required this.point,
-    required this.distance,
-  });
-}
+typedef _Neighbor = Quaker;
 
 class CommunityMap extends StatefulWidget {
   final bool sosMode;
-  const CommunityMap({super.key, this.sosMode = false});
+  final bool sarMode;
+  const CommunityMap({
+    super.key,
+    this.sosMode = false,
+    this.sarMode = false,
+  });
 
   @override
   State<CommunityMap> createState() => _CommunityMapState();
 }
 
 class _CommunityMapState extends State<CommunityMap> {
-  // Jakarta Convention Center area — change to your demo city if you like.
   static const _center = LatLng(-6.2146, 106.8451);
 
   late final List<_Neighbor> _neighbors;
-  Timer? _incomingSos;
+  final List<Timer> _timers = [];
   _Neighbor? _alertFor;
+  _Neighbor? _responder;
+  _Neighbor? _helpTarget;
 
   static const _dangerFrames = [
     'assets/images/Danger_Pic1.jpg',
@@ -55,62 +45,72 @@ class _CommunityMapState extends State<CommunityMap> {
   @override
   void initState() {
     super.initState();
-    _neighbors = [
-      _Neighbor(
-        name: 'Sari',
-        age: 24,
-        gender: 'Female',
-        avatarAsset: 'assets/images/young-female.jpg',
-        point: const LatLng(-6.2135, 106.8437),
-        distance: '90 m',
-      ),
-      _Neighbor(
-        name: 'Budi',
-        age: 43,
-        gender: 'Male',
-        avatarAsset: 'assets/images/man.jpg',
-        point: const LatLng(-6.2159, 106.8468),
-        distance: '210 m',
-      ),
-      _Neighbor(
-        name: 'Pak Joko',
-        age: 68,
-        gender: 'Male',
-        avatarAsset: 'assets/images/elder.jpg',
-        point: const LatLng(-6.2128, 106.8462),
-        distance: '260 m',
-      ),
-      _Neighbor(
-        name: 'Dimas',
-        age: 26,
-        gender: 'Male',
-        avatarAsset: 'assets/images/young-male.jpg',
-        point: const LatLng(-6.2161, 106.8433),
-        distance: '140 m',
-      ),
-      _Neighbor(
-        name: 'Bima',
-        age: 7,
-        gender: 'Male',
-        avatarAsset: 'assets/images/boy.jpg',
-        point: const LatLng(-6.2140, 106.8480),
-        distance: '320 m',
-      ),
-    ];
+    if (widget.sarMode) {
+      _neighbors = context.read<IncidentController>().people;
+      return;
+    }
 
-    _incomingSos = Timer(const Duration(seconds: 6), () {
-      if (!mounted) return;
-      setState(() {
-        _neighbors[3].status = NeighborStatus.sos;
-        _alertFor = _neighbors[3];
-      });
-    });
+    _neighbors = buildRoster();
+
+    if (widget.sosMode) {
+      for (final (i, n) in _neighbors.indexed) {
+        _timers.add(Timer(Duration(milliseconds: 1200 + i * 700), () {
+          if (mounted) setState(() => n.notified = true);
+        }));
+      }
+      _timers.add(Timer(const Duration(seconds: 6), () {
+        if (!mounted) return;
+        setState(() {
+          _neighbors[0].status = NeighborStatus.responding;
+          _responder = _neighbors[0];
+        });
+      }));
+    } else {
+      _timers.add(Timer(const Duration(seconds: 6), () {
+        if (!mounted) return;
+        setState(() {
+          _neighbors[3].status = NeighborStatus.sos;
+          _alertFor = _neighbors[3];
+        });
+      }));
+      _timers.add(Timer(const Duration(seconds: 12), () {
+        if (!mounted) return;
+        setState(() {
+          _neighbors[4].status = NeighborStatus.sos;
+          _alertFor ??= _neighbors[4];
+        });
+      }));
+    }
   }
 
   @override
   void dispose() {
-    _incomingSos?.cancel();
+    for (final t in _timers) {
+      t.cancel();
+    }
     super.dispose();
+  }
+
+  LatLng get _origin => widget.sarMode ? sarBasePoint : _center;
+
+  String _distanceTo(LatLng p) {
+    final m = const Distance()(_origin, p);
+    return m < 950 ? '${m.round()} m' : '${(m / 1000).toStringAsFixed(1)} km';
+  }
+
+  _Neighbor? get _nearestSos {
+    _Neighbor? best;
+    double bestD = double.infinity;
+    const dist = Distance();
+    for (final n in _neighbors) {
+      if (n.status != NeighborStatus.sos) continue;
+      final d = dist(_origin, n.point);
+      if (d < bestD) {
+        bestD = d;
+        best = n;
+      }
+    }
+    return best;
   }
 
   void _openRescueSheet(_Neighbor n) {
@@ -122,14 +122,43 @@ class _CommunityMapState extends State<CommunityMap> {
       builder: (sheetContext) => _RescueSheet(
         neighbor: n,
         frames: _dangerFrames,
+        sarMode: widget.sarMode,
+        distanceLabel: _distanceTo(n.point),
+        alreadyHelping: _helpTarget == n,
+        onCall: () {
+          Navigator.of(sheetContext).pop();
+          Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => EmergencyCallScreen(
+              name: n.name,
+              avatarAsset: n.avatarAsset,
+            ),
+          ));
+        },
+        onComingToHelp: () {
+          Navigator.of(sheetContext).pop();
+          setState(() => _helpTarget = n);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: QColors.orange,
+              content: Text(
+                  '🧡 Heading to ${n.name} — other Quakers can see you are on the way'),
+            ),
+          );
+        },
         onMarkSaved: () {
           Navigator.of(sheetContext).pop();
-          setState(() => n.status = NeighborStatus.saved);
+          if (widget.sarMode) {
+            context.read<IncidentController>().markSaved(n);
+          } else {
+            setState(() {
+              n.status = NeighborStatus.saved;
+              if (_helpTarget == n) _helpTarget = null;
+            });
+          }
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: QColors.green,
-              content: Text(
-                  '✓ ${n.name} marked as saved — SAR teams notified'),
+              content: Text('✓ ${n.name} marked as saved'),
             ),
           );
         },
@@ -139,41 +168,81 @@ class _CommunityMapState extends State<CommunityMap> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.sarMode) {
+      context.watch<IncidentController>();
+    }
+    LatLng? routeFrom;
+    LatLng? routeTo;
+    if (widget.sarMode) {
+      final nearest = _nearestSos;
+      if (nearest != null) {
+        routeFrom = _origin;
+        routeTo = nearest.point;
+      }
+    } else if (widget.sosMode && _responder != null) {
+      routeFrom = _responder!.point;
+      routeTo = _center;
+    } else if (_helpTarget != null) {
+      routeFrom = _center;
+      routeTo = _helpTarget!.point;
+    }
+
+    final nearest = _nearestSos;
+
     return Stack(
       children: [
         FlutterMap(
-          options: const MapOptions(initialCenter: _center, initialZoom: 16.2),
+          options: MapOptions(
+            initialCenter: widget.sarMode
+                ? const LatLng(-6.2155, 106.8452)
+                : _center,
+            initialZoom: 16.0,
+          ),
           children: [
             TileLayer(
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.example.quacky',
             ),
+            if (routeFrom != null && routeTo != null)
+              _RoutePolyline(
+                key: ValueKey('$routeFrom-$routeTo'),
+                from: routeFrom,
+                to: routeTo,
+              ),
             MarkerLayer(
               markers: [
                 for (final n in _neighbors)
                   Marker(
                     point: n.point,
-                    width: 74,
-                    height: 84,
+                    width: 96,
+                    height: 112,
                     child: GestureDetector(
-                      onTap: n.status == NeighborStatus.sos
+                      onTap: (!widget.sosMode &&
+                              n.status == NeighborStatus.sos)
                           ? () => _openRescueSheet(n)
                           : null,
-                      child: _PersonPin(neighbor: n),
+                      child: _PersonPin(
+                        neighbor: n,
+                        isNearestTarget: n == nearest,
+                        showNotified: widget.sosMode,
+                        distanceLabel: _distanceTo(n.point),
+                      ),
                     ),
                   ),
                 Marker(
-                  point: _center,
+                  point: _origin,
                   width: 96,
                   height: 104,
-                  child: _SelfPin(sos: widget.sosMode),
+                  child: widget.sarMode
+                      ? const _RescuerPin()
+                      : _SelfPin(sos: widget.sosMode),
                 ),
               ],
             ),
           ],
         ),
 
-        if (_alertFor != null)
+        if (_alertFor != null && !widget.sosMode)
           Positioned(
             top: 12,
             left: 12,
@@ -209,7 +278,7 @@ class _CommunityMapState extends State<CommunityMap> {
                             ),
                           ),
                           Text(
-                            '${_alertFor!.distance} away — you are the nearest safe user',
+                            '${_distanceTo(_alertFor!.point)} away — you are the nearest safe Quaker',
                             style: const TextStyle(
                                 color: Colors.white70, fontSize: 12),
                           ),
@@ -226,19 +295,179 @@ class _CommunityMapState extends State<CommunityMap> {
                 .then()
                 .shake(hz: 3, rotation: 0.005, duration: 400.ms),
           ),
+
+        if (widget.sosMode)
+          Positioned(
+            top: 12,
+            left: 12,
+            right: 12,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _responder == null
+                    ? QColors.brown
+                    : QColors.orange,
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black38, blurRadius: 10),
+                ],
+              ),
+              child: Row(
+                children: [
+                  if (_responder == null) ...[
+                    const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Calling nearby Quakers…',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14.5,
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundImage:
+                          AssetImage(_responder!.avatarAsset),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '🧡 ${_responder!.name} is coming to help',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 15,
+                            ),
+                          ),
+                          Text(
+                            '${_distanceTo(_responder!.point)} away — hold on',
+                            style: const TextStyle(
+                                color: Colors.white70, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ).animate().slideY(
+                begin: -1.5, curve: Curves.easeOut, duration: 400.ms),
+          ),
       ],
     );
   }
 }
 
+
+class _RoutePolyline extends StatefulWidget {
+  final LatLng from;
+  final LatLng to;
+  const _RoutePolyline({super.key, required this.from, required this.to});
+
+  @override
+  State<_RoutePolyline> createState() => _RoutePolylineState();
+}
+
+class _RoutePolylineState extends State<_RoutePolyline>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  )..forward();
+
+  List<LatLng> get _full {
+    final mid = LatLng(
+      widget.from.latitude + (widget.to.latitude - widget.from.latitude) * 0.5,
+      widget.to.longitude,
+    );
+    return [widget.from, mid, widget.to];
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final pts = _interpolate(_full, _c.value);
+        return PolylineLayer(
+          polylines: [
+            Polyline(
+              points: pts,
+              strokeWidth: 5,
+              color: QColors.orange,
+              borderStrokeWidth: 2,
+              borderColor: Colors.white,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  List<LatLng> _interpolate(List<LatLng> path, double t) {
+    if (t >= 1) return path;
+    final totalSegs = path.length - 1;
+    final scaled = t * totalSegs;
+    final seg = scaled.floor();
+    final frac = scaled - seg;
+    final out = <LatLng>[];
+    for (int i = 0; i <= seg; i++) {
+      out.add(path[i]);
+    }
+    if (seg < totalSegs) {
+      final a = path[seg];
+      final b = path[seg + 1];
+      out.add(LatLng(
+        a.latitude + (b.latitude - a.latitude) * frac,
+        a.longitude + (b.longitude - a.longitude) * frac,
+      ));
+    }
+    return out;
+  }
+}
+
 class _PersonPin extends StatelessWidget {
   final _Neighbor neighbor;
-  const _PersonPin({required this.neighbor});
+  final bool isNearestTarget;
+  final bool showNotified;
+  final String distanceLabel;
+  const _PersonPin({
+    required this.neighbor,
+    required this.distanceLabel,
+    this.isNearestTarget = false,
+    this.showNotified = false,
+  });
 
   Color get _color => switch (neighbor.status) {
         NeighborStatus.safe => QColors.green,
         NeighborStatus.sos => QColors.red,
         NeighborStatus.saved => Colors.blueGrey,
+        NeighborStatus.responding => QColors.orange,
+      };
+
+  String get _label => switch (neighbor.status) {
+        NeighborStatus.responding => 'On the way',
+        _ => neighbor.name,
       };
 
   @override
@@ -263,35 +492,91 @@ class _PersonPin extends StatelessWidget {
                 color: Colors.black38,
                 shape: BoxShape.circle,
               ),
-              child:
-                  const Icon(Icons.check, color: Colors.white, size: 26),
+              child: const Icon(Icons.check, color: Colors.white, size: 26),
             )
           : null,
     );
 
-    if (neighbor.status == NeighborStatus.sos) {
+    if (neighbor.status == NeighborStatus.sos ||
+        neighbor.status == NeighborStatus.responding) {
       avatar = Stack(
         alignment: Alignment.center,
         children: [
           Container(
             width: 46,
             height: 46,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: QColors.red,
+              color: isNearestTarget ? QColors.orange : _color,
             ),
           )
               .animate(onPlay: (c) => c.repeat())
-              .scaleXY(begin: 1, end: 2, duration: 1200.ms)
-              .fadeOut(duration: 1200.ms),
+              .scaleXY(
+                begin: 1,
+                end: isNearestTarget ? 2.6 : 2,
+                duration: isNearestTarget ? 1000.ms : 1200.ms,
+              )
+              .fadeOut(duration: isNearestTarget ? 1000.ms : 1200.ms),
           avatar,
         ],
       );
     }
 
+    if (showNotified &&
+        neighbor.notified &&
+        neighbor.status == NeighborStatus.safe) {
+      avatar = Stack(
+        clipBehavior: Clip.none,
+        children: [
+          avatar,
+          Positioned(
+            top: -4,
+            right: -4,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: QColors.orange,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: const Icon(Icons.notifications_active,
+                  size: 12, color: Colors.white),
+            ).animate().scale(
+                  begin: const Offset(0, 0),
+                  curve: Curves.elasticOut,
+                  duration: 500.ms,
+                ),
+          ),
+        ],
+      );
+    }
+
+    final isSos = neighbor.status == NeighborStatus.sos;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (isNearestTarget && isSos)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            margin: const EdgeInsets.only(bottom: 3),
+            decoration: BoxDecoration(
+              color: QColors.orange,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.white, width: 1.5),
+            ),
+            child: const Text(
+              'NEAREST',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 8.5,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.5,
+              ),
+            ),
+          )
+              .animate(onPlay: (c) => c.repeat(reverse: true))
+              .scaleXY(end: 1.1, duration: 700.ms),
         avatar,
         const SizedBox(height: 2),
         Container(
@@ -301,8 +586,68 @@ class _PersonPin extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
-            neighbor.name,
+            _label,
             style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        if (isSos)
+          Container(
+            margin: const EdgeInsets.only(top: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: QColors.red, width: 1.5),
+            ),
+            child: Text(
+              distanceLabel,
+              style: const TextStyle(
+                color: QColors.red,
+                fontSize: 9.5,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _RescuerPin extends StatelessWidget {
+  const _RescuerPin();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: QColors.nightIndigo,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 3),
+            boxShadow: const [
+              BoxShadow(color: Colors.black38, blurRadius: 6),
+            ],
+          ),
+          child: const Icon(Icons.shield, color: Colors.white, size: 26),
+        ),
+        const SizedBox(height: 2),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+          decoration: BoxDecoration(
+            color: QColors.nightIndigo,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Text(
+            'SAR',
+            style: TextStyle(
               color: Colors.white,
               fontSize: 10,
               fontWeight: FontWeight.w800,
@@ -389,17 +734,28 @@ class _SelfPin extends StatelessWidget {
 class _RescueSheet extends StatelessWidget {
   final _Neighbor neighbor;
   final List<String> frames;
+  final bool sarMode;
+  final String distanceLabel;
+  final bool alreadyHelping;
   final VoidCallback onMarkSaved;
+  final VoidCallback onComingToHelp;
+  final VoidCallback onCall;
   const _RescueSheet({
     required this.neighbor,
     required this.frames,
+    required this.sarMode,
+    required this.distanceLabel,
+    required this.alreadyHelping,
     required this.onMarkSaved,
+    required this.onComingToHelp,
+    required this.onCall,
   });
 
   @override
   Widget build(BuildContext context) {
+    final userConfirmed = neighbor.locSource == LocSource.user;
     return DraggableScrollableSheet(
-      initialChildSize: 0.72,
+      initialChildSize: 0.78,
       minChildSize: 0.5,
       maxChildSize: 0.95,
       builder: (context, scroll) => Container(
@@ -423,7 +779,6 @@ class _RescueSheet extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // Victim header.
             Row(
               children: [
                 Container(
@@ -447,7 +802,7 @@ class _RescueSheet extends StatelessWidget {
                             fontSize: 24, fontWeight: FontWeight.w900),
                       ),
                       Text(
-                        '${neighbor.age} yrs · ${neighbor.gender} · ${neighbor.distance} away',
+                        '${neighbor.age} yrs · ${neighbor.gender} · $distanceLabel away',
                         style: const TextStyle(
                             fontSize: 14, color: QColors.brownSoft),
                       ),
@@ -474,6 +829,61 @@ class _RescueSheet extends StatelessWidget {
                     .fade(begin: 1, end: 0.5, duration: 600.ms),
               ],
             ).animate().fadeIn().slideY(begin: 0.2),
+            const SizedBox(height: 20),
+
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: (userConfirmed ? QColors.green : QColors.orange)
+                    .withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: userConfirmed ? QColors.green : QColors.orange,
+                  width: 2,
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    userConfirmed ? Icons.verified : Icons.auto_awesome,
+                    color: userConfirmed ? QColors.green : QColors.orange,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          userConfirmed
+                              ? 'LOCATION · USER CONFIRMED'
+                              : 'LOCATION · AI SUGGESTION',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                            color:
+                                userConfirmed ? QColors.green : QColors.orange,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          userConfirmed
+                              ? '“${neighbor.locNote}”'
+                              : neighbor.aiSummary,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            height: 1.4,
+                            color: QColors.brown,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ).animate().fadeIn(delay: 150.ms),
             const SizedBox(height: 20),
 
             const Text(
@@ -506,60 +916,52 @@ class _RescueSheet extends StatelessWidget {
                     .slideX(begin: 0.3, curve: Curves.easeOut),
               ),
             ),
-            const SizedBox(height: 20),
-
-            const Text(
-              'SITUATION SUMMARY',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
-                color: QColors.brownSoft,
-                letterSpacing: 1.1,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: QColors.creamDeep, width: 2),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.auto_awesome,
-                      color: QColors.orange, size: 22),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      MockConfig.geminiContextSummary,
-                      style: const TextStyle(
-                        fontSize: 14.5,
-                        height: 1.45,
-                        color: QColors.brown,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ).animate().fadeIn(delay: 250.ms),
             const SizedBox(height: 24),
 
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: QColors.green,
-                minimumSize: const Size.fromHeight(64),
-              ),
-              icon: const Icon(Icons.volunteer_activism, size: 26),
-              label: const Text('MARK AS SAVED'),
-              onPressed: onMarkSaved,
-            ).animate().fadeIn(delay: 350.ms).slideY(begin: 0.3),
+            if (sarMode) ...[
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: QColors.red,
+                  minimumSize: const Size.fromHeight(64),
+                ),
+                icon: const Icon(Icons.phone_in_talk, size: 26),
+                label: const Text('EMERGENCY CALL'),
+                onPressed: onCall,
+              )
+                  .animate(onPlay: (c) => c.repeat(reverse: true))
+                  .scaleXY(end: 1.02, duration: 600.ms),
+              const SizedBox(height: 10),
+            ],
+
+            if (!sarMode && !alreadyHelping)
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: QColors.orange,
+                  minimumSize: const Size.fromHeight(64),
+                ),
+                icon: const Icon(Icons.directions_run, size: 26),
+                label: const Text("I'M COMING TO HELP"),
+                onPressed: onComingToHelp,
+              )
+                  .animate(onPlay: (c) => c.repeat(reverse: true))
+                  .scaleXY(end: 1.02, duration: 600.ms)
+            else
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: QColors.green,
+                  minimumSize: const Size.fromHeight(64),
+                ),
+                icon: const Icon(Icons.volunteer_activism, size: 26),
+                label: const Text('MARK AS SAVED'),
+                onPressed: onMarkSaved,
+              ).animate().fadeIn().slideY(begin: 0.3),
             const SizedBox(height: 8),
-            const Text(
-              'Press once you have reached and secured this person.\nSAR teams will see this node as cleared.',
+            Text(
+              (!sarMode && !alreadyHelping)
+                  ? 'Let ${neighbor.name} know you are on the way.\nOther Quakers will see this node is covered.'
+                  : 'Mark as saved once you have reached and secured this Quaker.\nSAR teams will see this node as cleared.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: QColors.brownSoft),
+              style: const TextStyle(fontSize: 12, color: QColors.brownSoft),
             ),
           ],
         ),
